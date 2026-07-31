@@ -1,0 +1,37 @@
+name: Retrain and Redeploy
+
+on:
+  repository_dispatch:
+    types: [drift_detected]
+  workflow_dispatch:
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r app/requirements.txt
+
+      - name: Retrain model
+        run: python app/train_dummy_model.py
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push new image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/model-api:${{ github.run_number }} ./app
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/model-api:${{ github.run_number }}
+
+      - name: Notify success
+        run: echo "Retrained and pushed model-api:${{ github.run_number }} successfully"
